@@ -1,0 +1,31 @@
+version: "1"
+services:  
+  todoapp-be:
+    image: todoapp-be:1.0
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./BE/QaToDoApp/Dockerfile   
+    ports:
+       - "5000:80"
+       - "5001:443"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "https://+5001;http://+5000"
+      ASPNETCORE_HTTPS_PORT: "5001"     
+    volumes:
+      - ${APPDATA}\microsoft\UserSecrets\:/root/.microsoft/usersecrets
+      - ${USERPROFILE}\.aspnet\https:/root/.aspnet/https/
+            
+  todoapp-fe:
+    image: todoapp-fe:1.0
+    restart: unless-stopped
+    build: 
+      context: .
+      dockerfile: ./FE/Dockerfile
+      args:
+        VUE_APP_API_URL: http://localhost:8080            
+    ports:
+      - "8081:80"
+    depends_on:
+      - todoapp-be    

@@ -1,0 +1,46 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "target": "ESNext",
+        "lib": [
+            "ESNext",
+            "dom.iterable",
+            "dom"
+        ],
+        "types": [
+            "cypress",
+            "node",
+            "cypress-xpath",
+            "cypress-mochawesome-reporter"
+        ],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "noFallthroughCasesInSwitch": true,
+        "module": "esnext",
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noEmit": true,
+        "jsx": "react-jsx"
+    },
+    "include": [
+        "**/*.ts",
+        "**/*.tsx",
+        "src"
+    ],
+    "paths": {
+        "@support/*": [
+            "support/*"
+        ],
+        "@e2e/*": [
+            "e2e/*"
+        ],
+        "@fixtures/*": [
+            "fixtures/*"
+        ]
+    }
+}

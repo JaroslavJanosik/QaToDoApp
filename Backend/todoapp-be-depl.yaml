@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-be-depl
+  labels:
+    app: todoapp-be
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: todoapp-be
+  template:
+    metadata:
+      labels:
+        app: todoapp-be
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - name: todoapp-be
+        image: todoapp-be:1.0
+        ports:
+        - name: http
+          containerPort: 80

@@ -9,7 +9,7 @@ Simple ToDo application consisting of API BE part written in .NET and FE part in
 ### BE execution
 `dotnet run`  
 
-For convenience, you can find the Swagger running on `https://localhost:5001/swagger/index.html`
+For convenience, you can find the Swagger running on `https://localhost:5111/swagger/index.html`
 
 ### FE execution
 `npm start`

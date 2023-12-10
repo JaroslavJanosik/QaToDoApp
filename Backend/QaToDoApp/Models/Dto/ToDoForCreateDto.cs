@@ -1,4 +1,4 @@
-﻿namespace QaToDoApp.Models
+﻿namespace QaToDoApp.Models.Dto
 {
     public class ToDoForCreateDto
     {

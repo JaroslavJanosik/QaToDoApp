@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QaToDoApp.Data;
 using QaToDoApp.Models;
 
 namespace QaToDoAppIntegrationTests;
@@ -18,11 +19,11 @@ public class CustomWebApplicationFactory<TStartup>
         {
             var descriptor = services.SingleOrDefault(
                 d => d.ServiceType ==
-                     typeof(DbContextOptions<ToDoContext>));
+                     typeof(DbContextOptions<ToDoDbContext>));
 
             services.Remove(descriptor);
 
-            services.AddDbContext<ToDoContext>(options =>
+            services.AddDbContext<ToDoDbContext>(options =>
             {
                 options.UseInMemoryDatabase("InMemoryDbForTesting");
             });
@@ -31,7 +32,7 @@ public class CustomWebApplicationFactory<TStartup>
 
             using var scope = sp.CreateScope();
             var scopedServices = scope.ServiceProvider;
-            var db = scopedServices.GetRequiredService<ToDoContext>();
+            var db = scopedServices.GetRequiredService<ToDoDbContext>();
             var logger = scopedServices
                 .GetRequiredService<ILogger<CustomWebApplicationFactory<TStartup>>>();
 

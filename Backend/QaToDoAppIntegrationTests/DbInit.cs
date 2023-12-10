@@ -3,18 +3,19 @@ using QaToDoApp.Models;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
+using QaToDoApp.Data;
 
 namespace QaToDoAppIntegrationTests
 {
     public static class DbInit
     {       
-        private static void InitializeDbForTests(ToDoContext db)
+        private static void InitializeDbForTests(ToDoDbContext db)
         {
             db.TodoItems.AddRange(GetSeedingToDoItems());
             db.SaveChanges();
         }
 
-        public static void ReinitializeDbForTests(ToDoContext db)
+        public static void ReinitializeDbForTests(ToDoDbContext db)
         {
             db.TodoItems.RemoveRange(db.TodoItems);
             InitializeDbForTests(db);

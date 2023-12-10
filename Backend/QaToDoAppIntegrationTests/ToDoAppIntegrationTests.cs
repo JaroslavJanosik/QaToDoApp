@@ -1,12 +1,14 @@
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Newtonsoft.Json;
 using QaToDoApp;
 using QaToDoApp.Models;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using QaToDoApp.Models.Dto;
 using Xunit;
 
 namespace QaToDoAppIntegrationTests
@@ -24,104 +26,133 @@ namespace QaToDoAppIntegrationTests
             });
         }
 
+        private async Task<T> DeserializeApiResponse<T>(HttpResponseMessage response)
+        {
+            var responseJson = await response.Content.ReadAsStringAsync();
+            var apiResponseObj = JsonConvert.DeserializeObject<ApiResponse>(responseJson);
+            var resultJson = apiResponseObj.Result.ToString();
+            return JsonConvert.DeserializeObject<T>(resultJson!);
+        }
+
         [Fact]
         public async Task GetAllTodoItemsTest()
         {
+            // Arrange
             var response = await _client.GetAsync("/api/ToDoItems");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            
-            var content = await response.Content.ReadAsStringAsync();
-            var toDoItems = JsonConvert.DeserializeObject<List<ToDoItem>>(content);
-            
-            toDoItems.Should().HaveCount(3);
-            toDoItems[0].Id.Should().Be(1);
-            toDoItems[0].Text.Should().Be("ToDo item 1");
-            toDoItems[0].Completed.Should().Be(false);
-            toDoItems[1].Id.Should().Be(2);
-            toDoItems[1].Text.Should().Be("ToDo item 2");
-            toDoItems[1].Completed.Should().Be(false);
-            toDoItems[2].Id.Should().Be(3);
-            toDoItems[2].Text.Should().Be("ToDo item 3");
-            toDoItems[2].Completed.Should().Be(false);
+
+            // Act
+            var toDoItems = await DeserializeApiResponse<List<ToDoItemDto>>(response);
+
+            // Assert
+            toDoItems.Should().NotBeNull().And.HaveCount(3);
+            toDoItems.Should().OnlyContain(item => !item.Completed);
+            toDoItems.Should().BeEquivalentTo(Enumerable.Range(1, 3).Select(i => new ToDoItemDto
+                { Id = i, Text = $"ToDo item {i}", Completed = false }));
         }
 
         [Fact]
         public async Task GetTodoItemTest()
         {
+            // Arrange
             var response = await _client.GetAsync("/api/ToDoItems/1");
-            var content = await response.Content.ReadAsStringAsync();
-            var toDoItems = JsonConvert.DeserializeObject<ToDoItem>(content);
-            
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            toDoItems.Id.Should().Be(1);
-            toDoItems.Text.Should().Be("ToDo item 1");
-            toDoItems.Completed.Should().Be(false);
+
+            // Act
+            var toDoItem = await DeserializeApiResponse<ToDoItemDto>(response);
+
+            // Assert
+            toDoItem.Id.Should().Be(1);
+            toDoItem.Text.Should().Be("ToDo item 1");
+            toDoItem.Completed.Should().Be(false);
         }
 
         [Fact]
         public async Task PostTodoItemTest()
         {
+            // Arrange
+            const string toDoItemText = "A new POST ToDo item";
             var request = new
             {
                 Url = "/api/ToDoItems/",
                 Body = new
                 {
-                    Text = "A new POST ToDo item"
+                    Text = toDoItemText,
                 }
             };
 
-            var postResponse = await _client.PostAsync(request.Url, DbInit.GetStringContent(request.Body));
-            var jsonFromPostResponse = await postResponse.Content.ReadAsStringAsync();
-            var singleResponse = JsonConvert.DeserializeObject<ToDoItem>(jsonFromPostResponse); 
-            var getResponse = await _client.GetAsync($"/api/ToDoItems/{singleResponse.Id}");
+            // Act
+            var response = await _client.PostAsync(request.Url, DbInit.GetStringContent(request.Body));
+            var toDoItem = await DeserializeApiResponse<ToDoItemDto>(response);
 
-            postResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-            getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-            
-            var content = await getResponse.Content.ReadAsStringAsync();
-            var toDoItems = JsonConvert.DeserializeObject<ToDoItem>(content);
-            
-            toDoItems.Id.Should().Be(4);
-            toDoItems.Text.Should().Be("A new POST ToDo item");
-            toDoItems.Completed.Should().Be(false);
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            toDoItem.Id.Should().Be(4);
+            toDoItem.Text.Should().Be(toDoItemText);
+            toDoItem.Completed.Should().Be(false);
         }
-        
+
         [Fact]
         public async Task PutTodoItemTest()
         {
+            // Arrange
+            const string toDoItemText = "A new PUT ToDo item";
             var request = new
             {
                 Url = "/api/ToDoItems/1",
                 Body = new
                 {
-                    Text = "A new PUT ToDo item",
+                    Id = 1,
+                    Text = toDoItemText,
                     Completed = true
                 }
             };
 
-            var putResponse = await _client.PutAsync(request.Url, DbInit.GetStringContent(request.Body));
-            var jsonFromPutResponse = await putResponse.Content.ReadAsStringAsync();
-            var putToDoItem = JsonConvert.DeserializeObject<ToDoItem>(jsonFromPutResponse);
-            
-            putToDoItem.Text.Should().Be("A new PUT ToDo item");
-            putToDoItem.Completed.Should().Be(true);
-            
-            var getResponse = await _client.GetAsync(request.Url);
+            // Act
+            var response = await _client.PutAsync(request.Url, DbInit.GetStringContent(request.Body));
+            var toDoItem = await DeserializeApiResponse<ToDoItemDto>(response);
 
-            putResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-            getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-            
-            var content = await getResponse.Content.ReadAsStringAsync();
-            var getToDoItem = JsonConvert.DeserializeObject<ToDoItem>(content);
-            
-            getToDoItem.Id.Should().Be(1);
-            getToDoItem.Text.Should().Be("A new PUT ToDo item");
-            getToDoItem.Completed.Should().Be(true);
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            toDoItem.Id.Should().Be(1);
+            toDoItem.Text.Should().Be(toDoItemText);
+            toDoItem.Completed.Should().Be(true);
+        }
+
+        [Fact]
+        public async Task PatchTodoItemTest()
+        {
+            // Arrange
+            const string toDoItemText = "A new PATCH ToDo Item";
+            var request = new
+            {
+                Url = "/api/ToDoItems/1",
+                Body = new[]
+                {
+                    new
+                    {
+                        Path = "/text",
+                        Op = "replace",
+                        Value = toDoItemText
+                    }
+                }
+            };
+
+            // Act
+            var response = await _client.PatchAsync(request.Url, DbInit.GetStringContent(request.Body));
+            var toDoItem = await DeserializeApiResponse<ToDoItemDto>(response);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            toDoItem.Id.Should().Be(1);
+            toDoItem.Text.Should().Be(toDoItemText);
+            toDoItem.Completed.Should().Be(false);
         }
 
         [Fact]
         public async Task DeleteTodoItemTest()
         {
+            // Arrange
             var postRequest = new
             {
                 Url = "/api/ToDoItems/",
@@ -132,12 +163,14 @@ namespace QaToDoAppIntegrationTests
             };
 
             var postResponse = await _client.PostAsync(postRequest.Url, DbInit.GetStringContent(postRequest.Body));
-            var jsonFromPostResponse = await postResponse.Content.ReadAsStringAsync();
-            var singleResponse = JsonConvert.DeserializeObject<ToDoItem>(jsonFromPostResponse);
-            var deleteResponse = await _client.DeleteAsync($"/api/ToDoItems/{singleResponse.Id}");
-            var getResponse = await _client.GetAsync($"/api/ToDoItems/{singleResponse.Id}");
+            var postToDoItem = await DeserializeApiResponse<ToDoItemDto>(postResponse);
 
-            postResponse.StatusCode.Should().Be(HttpStatusCode.Created);           
+            // Act
+            var deleteResponse = await _client.DeleteAsync($"/api/ToDoItems/{postToDoItem.Id}");
+            var getResponse = await _client.GetAsync($"/api/ToDoItems/{postToDoItem.Id}");
+
+            // Assert
+            postResponse.StatusCode.Should().Be(HttpStatusCode.Created);
             deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
             getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }

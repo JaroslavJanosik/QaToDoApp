@@ -1,17 +1,17 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using QaToDoApp.Models;
+using QaToDoApp.Data;
 
 namespace QaToDoAppUnitTests
 {
     internal static class DbContextMocker
     {
-        public static ToDoContext GetToDoAppDbContext(string dbName)
+        public static ToDoDbContext GetToDoAppDbContext(string dbName)
         {            
-            var options = new DbContextOptionsBuilder<ToDoContext>()
+            var options = new DbContextOptionsBuilder<ToDoDbContext>()
                 .UseInMemoryDatabase(databaseName: dbName)
                 .Options;
             
-            var dbContext = new ToDoContext(options);
+            var dbContext = new ToDoDbContext(options);
 
             dbContext.Seed();
 

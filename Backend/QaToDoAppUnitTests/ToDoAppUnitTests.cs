@@ -1,134 +1,160 @@
-using System.Diagnostics;
+using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using QaToDoApp.Controllers;
 using QaToDoApp.Models;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using AutoMapper;
+using Microsoft.AspNetCore.JsonPatch;
+using QaToDoApp;
+using QaToDoApp.Models.Dto;
+using QaToDoApp.Repository;
 using Xunit;
 
 namespace QaToDoAppUnitTests
 {
     public class ToDoAppUnitTests
     {
-        [Fact]      
-        public async Task TestGetTodoItems()
+        private readonly ToDoItemsController _toDoItemsController;
+
+        public ToDoAppUnitTests()
         {
-            var dbContext = DbContextMocker.GetToDoAppDbContext(nameof(TestGetTodoItems));
-            var toDoItemsController = new ToDoItemsController(dbContext);
-           
-            var getResponse = await toDoItemsController.GetTodoItems();           
-            var value = getResponse.Value;
+            _toDoItemsController = CreateController(nameof(ToDoAppUnitTests));
+        }
 
-            await dbContext.DisposeAsync();
-
-            var toDoItems = value.ToList();
-            toDoItems.Count.Should().Be(3);
-            toDoItems[0].Id.Should().Be(1);
-            toDoItems[0].Text.Should().Be("ToDo item 1");
-            toDoItems[0].Completed.Should().Be(false);
-            toDoItems[1].Id.Should().Be(2);
-            toDoItems[1].Text.Should().Be("ToDo item 2");
-            toDoItems[1].Completed.Should().Be(false);
-            toDoItems[2].Id.Should().Be(3);
-            toDoItems[2].Text.Should().Be("ToDo item 3");
-            toDoItems[2].Completed.Should().Be(false);
+        private ToDoItemsController CreateController(string testName)
+        {
+            var dbContext = DbContextMocker.GetToDoAppDbContext(testName);
+            var repository = new ToDoItemRepository(dbContext);
+            var mockMapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingConfig()));
+            var mapper = mockMapper.CreateMapper();
+            return new ToDoItemsController(repository, mapper);
         }
 
         [Fact]
-        public async Task TestGetTodoItem()
+        public async Task TestGetTodoItemsAsync()
         {
-            var dbContext = DbContextMocker.GetToDoAppDbContext(nameof(TestGetTodoItem));
-            var toDoItemsController = new ToDoItemsController(dbContext);
+            // Arrange
+            var toDoItemsController = CreateController(nameof(TestGetTodoItemsAsync));
 
+            // Act
+            var getResponse = await toDoItemsController.GetTodoItems();
+            var result = getResponse.Result as OkObjectResult;
+            var apiResponse = result?.Value as ApiResponse;
+            var toDoItems = apiResponse?.Result as List<ToDoItemDto>;
+
+            // Assert
+            toDoItems.Should().NotBeNull().And.HaveCount(3);
+            toDoItems.Should().OnlyContain(item => !item.Completed);
+            toDoItems.Should().BeEquivalentTo(Enumerable.Range(1, 3).Select(i => new ToDoItemDto
+                { Id = i, Text = $"ToDo item {i}", Completed = false }));
+        }
+
+        [Fact]
+        public async Task TestGetTodoItemAsync()
+        {
+            // Arrange
+            var toDoItemsController = CreateController(nameof(TestGetTodoItemAsync));
+
+            // Act
             var getResponse = await toDoItemsController.GetToDoItem(1);
-            var toDoItem = getResponse.Value;
+            var result = getResponse.Result as OkObjectResult;
+            var apiResponse = result?.Value as ApiResponse;
+            var toDoItem = apiResponse?.Result as ToDoItemDto;
 
-            await dbContext.DisposeAsync();
-
-            toDoItem.Id.Should().Be(1);
+            // Assert
+            toDoItem.Should().NotBeNull();
+            toDoItem!.Id.Should().Be(1);
             toDoItem.Text.Should().Be("ToDo item 1");
-            toDoItem.Completed.Should().Be(false);
+            toDoItem.Completed.Should().BeFalse();
         }
 
         [Fact]
-        public async Task TestPostTodoItem()
+        public async Task TestPostTodoItemAsync()
         {
+            // Arrange
+            var toDoItemsController = CreateController(nameof(TestPostTodoItemAsync));
             const string toDoItemText = "A new POST ToDo Item";
-            var dbContext = DbContextMocker.GetToDoAppDbContext(nameof(TestPostTodoItem));
-            var toDoItemsController = new ToDoItemsController(dbContext);
-            var request = new ToDoForCreateDto
-            {
-                Text = $"{toDoItemText}"
-            };
+            var request = new ToDoForCreateDto { Text = toDoItemText };
 
+            // Act
             var postResponse = await toDoItemsController.PostToDoItem(request);
-            var result = postResponse.Result as CreatedAtActionResult;
-            Debug.Assert(result != null, nameof(result) + " != null");
-            var toDoItem = result.Value as ToDoItem;
-                        
-            await dbContext.DisposeAsync();
+            var result = postResponse.Result as CreatedAtRouteResult;
+            var apiResponse = result?.Value as ApiResponse;
+            var toDoItem = apiResponse?.Result as ToDoItemDto;
 
-            Debug.Assert(toDoItem != null, nameof(toDoItem) + " != null");
-            toDoItemText.Should().Be(toDoItem.Text);
-            toDoItem.Completed.Should().Be(false);
+            // Assert
+            toDoItem.Should().NotBeNull();
+            toDoItemText.Should().Be(toDoItem!.Text);
+            toDoItem.Completed.Should().BeFalse();
             result.StatusCode.Should().Be((int)HttpStatusCode.Created);
         }
-        
+
         [Fact]
-        public async Task TestPutTodoItem()
+        public async Task TestPutTodoItemAsync()
         {
+            // Arrange
+            var toDoItemsController = CreateController(nameof(TestPutTodoItemAsync));
             const string toDoItemText = "A new PUT ToDo Item";
-            var dbContext = DbContextMocker.GetToDoAppDbContext(nameof(TestPutTodoItem));
-            var toDoItemsController = new ToDoItemsController(dbContext);
-            var request = new ToDoForUpdateDto()
-            {
-                Text = $"{toDoItemText}",
-                Completed = true
-            };
+            var request = new ToDoForUpdateDto { Id = 1, Text = toDoItemText, Completed = true };
 
+            // Act
             var putResponse = await toDoItemsController.PutToDoItem(1, request);
-            var result = putResponse as CreatedAtActionResult;
-            Debug.Assert(result != null, nameof(result) + " != null");
-            var toDoItem = result.Value as ToDoItem;
-                        
-            await dbContext.DisposeAsync();
+            var result = putResponse.Result as OkObjectResult;
+            var apiResponse = result?.Value as ApiResponse;
+            var toDoItem = apiResponse?.Result as ToDoItemDto;
 
-            Debug.Assert(toDoItem != null, nameof(toDoItem) + " != null");
-            toDoItemText.Should().Be(toDoItem.Text);
-            toDoItem.Completed.Should().Be(true);
-            result.StatusCode.Should().Be((int)HttpStatusCode.Created);
+            // Assert
+            toDoItem.Should().NotBeNull();
+            toDoItemText.Should().Be(toDoItem!.Text);
+            toDoItem.Completed.Should().BeTrue();
+            result.StatusCode.Should().Be((int)HttpStatusCode.OK);
         }
 
         [Fact]
-        public async Task TestDeleteTodoItem()
+        public async Task TestPatchTodoItemAsync()
         {
+            // Arrange
+            var toDoItemsController = CreateController(nameof(TestPatchTodoItemAsync));
+            const string toDoItemText = "A new PATCH ToDo Item";
+            var request = new JsonPatchDocument<ToDoForUpdateDto>();
+            request.Replace(t => t.Text, toDoItemText);
+            request.Replace(t => t.Completed, true);
+
+            // Act
+            var patchResponse = await toDoItemsController.PatchToDoItem(1, request);
+            var result = patchResponse as OkObjectResult;
+            var apiResponse = result?.Value as ApiResponse;
+            var toDoItem = apiResponse?.Result as ToDoItemDto;
+
+            // Assert
+            toDoItem.Should().NotBeNull();
+            toDoItemText.Should().Be(toDoItem!.Text);
+            toDoItem.Completed.Should().BeTrue();
+            result.StatusCode.Should().Be((int)HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task TestDeleteTodoItemAsync()
+        {
+            // Arrange
+            var toDoItemsController = CreateController(nameof(TestDeleteTodoItemAsync));
             const string toDoItemText = "A new DELETE ToDo Item";
-            var dbContext = DbContextMocker.GetToDoAppDbContext(nameof(TestDeleteTodoItem));
-            var toDoItemsController = new ToDoItemsController(dbContext);
-            var request = new ToDoForCreateDto
-            {
-                Text = $"{toDoItemText}"
-            };
+            var request = new ToDoForCreateDto { Text = toDoItemText };
 
+            // Act
             var postResponse = await toDoItemsController.PostToDoItem(request);
-            var value = postResponse.Value;
-            var result = postResponse.Result as CreatedAtActionResult;
-            Debug.Assert(result != null, nameof(result) + " != null");
-            var item = result.Value as ToDoItem;
+            var result = postResponse.Result as CreatedAtRouteResult;
+            var apiResponse = result?.Value as ApiResponse;
+            var toDoItem = apiResponse?.Result as ToDoItemDto;
+            var deleteResponse = await toDoItemsController.DeleteToDoItem(toDoItem!.Id);
 
-            Debug.Assert(item != null, nameof(item) + " != null");
-            var deleteResponse = await toDoItemsController.DeleteToDoItem(item.Id);
-            var deleteStatusCode = deleteResponse as StatusCodeResult;
-            var getResponse = await toDoItemsController.GetToDoItem(item.Id);
-            var getStatusCode = getResponse.Result as StatusCodeResult;
-
-            await dbContext.DisposeAsync();
-            Debug.Assert(getStatusCode != null, nameof(getStatusCode) + " != null");
-            getStatusCode.StatusCode.Should().Be((int)HttpStatusCode.NotFound);
-            Debug.Assert(deleteStatusCode != null, nameof(deleteStatusCode) + " != null");
-            deleteStatusCode.StatusCode.Should().Be((int)HttpStatusCode.NoContent);
+            // Assert
+            deleteResponse.Result.Should().BeOfType<NoContentResult>().Which.StatusCode.Should().Be((int)HttpStatusCode.NoContent);
+            var getResponse = await toDoItemsController.GetToDoItem(toDoItem.Id);
+            getResponse.Result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be((int)HttpStatusCode.NotFound);
         }
     }
 }

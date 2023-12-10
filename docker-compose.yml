@@ -1,28 +1,29 @@
-version: "1"
-services:  
+version: "v1"
+services:
   todoapp-be:
     image: todoapp-be:1.0
     restart: unless-stopped
     build:
-      context: .
-      dockerfile: ./Backend/Dockerfile   
+      context: ./Backend
+      dockerfile: ./Dockerfile
     ports:
-       - "5000:80"
-       - "5001:443"
+       - "5110:80"
+       - "5111:443"
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
-      ASPNETCORE_URLS: "https://+5001;http://+5000"
-      ASPNETCORE_HTTPS_PORT: "5001"     
-            
+      ASPNETCORE_URLS: "https://+5111;http://+5110"
+      ASPNETCORE_HTTPS_PORT: "5111"
+      ASPNETCORE_Kestrel__Certificates__Default__Password: password
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
+    volumes:
+      - ~/.aspnet/https:/https:ro          
   todoapp-fe:
     image: todoapp-fe:1.0
     restart: unless-stopped
     build: 
-      context: .
-      dockerfile: ./Frontend/Dockerfile
-      args:
-        REACT_APP_API_URL: http://localhost:3000       
+      context: ./Frontend
+      dockerfile: ./Dockerfile
     ports:
-      - "8081:80"
+      - "3000:80"
     depends_on:
-      - todoapp-be    
+      - todoapp-be

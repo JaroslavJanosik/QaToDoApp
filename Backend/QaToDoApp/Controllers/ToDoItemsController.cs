@@ -1,8 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
+using AutoMapper;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using QaToDoApp.Models;
+using QaToDoApp.Models.Dto;
+using QaToDoApp.Repository;
 
 namespace QaToDoApp.Controllers
 {
@@ -10,83 +16,194 @@ namespace QaToDoApp.Controllers
     [ApiController]
     public class ToDoItemsController : ControllerBase
     {
-        private readonly ToDoContext _context;
+        private readonly IToDoItemRepository _dbToDoItem;
+        private readonly ApiResponse _response;
+        private readonly IMapper _mapper;
 
-        public ToDoItemsController(ToDoContext context)
+        public ToDoItemsController(IToDoItemRepository dbToDoItem, IMapper mapper)
         {
-            _context = context;
+            _dbToDoItem = dbToDoItem;
+            _mapper = mapper;
+            _response = new ApiResponse();
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<ToDoItem>>> GetTodoItems()
+        [HttpGet(Name = "GetAllToDoItems")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult<ApiResponse>> GetTodoItems()
         {
-            return await _context.TodoItems.ToListAsync();
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ToDoItem>> GetToDoItem(int id)
-        {
-            var toDoItem = await _context.TodoItems.FindAsync(id);
-
-            if (toDoItem == null)
+            try
             {
-                return NotFound();
+                IEnumerable<ToDoItem> toDoList = await _dbToDoItem.GetAllAsync();
+                _response.Result = _mapper.Map<List<ToDoItemDto>>(toDoList);
+                _response.StatusCode = HttpStatusCode.OK;
+                return Ok(_response);
             }
-
-            return toDoItem;
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.ErrorMessages
+                    = new List<string>() { ex.ToString() };
+            }
+            return _response;
         }
 
-        [HttpPost]
-        public async Task<ActionResult<ToDoItem>> PostToDoItem(ToDoForCreateDto toDoItemDto)
+        [HttpGet("{id:int}", Name = "GetToDoItem")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ApiResponse>> GetToDoItem(int id)
         {
-            var toDoItem = new ToDoItem
+            try
             {
-                Id = 0,
-                Text = toDoItemDto.Text,
-                Completed = false
-            };
+                if (id == 0)
+                {
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    return BadRequest(_response);
+                }
+                var toDoItem = await _dbToDoItem.GetAsync(u => u.Id == id);
+                if (toDoItem == null)
+                {
+                    _response.StatusCode = HttpStatusCode.NotFound;
+                    return NotFound(_response);
+                }
+                _response.Result = _mapper.Map<ToDoItemDto>(toDoItem);
+                _response.StatusCode = HttpStatusCode.OK;
+                return Ok(_response);
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.ErrorMessages
+                    = new List<string>() { ex.ToString() };
+            }
+            return _response; 
+        }
 
-            _context.TodoItems.Add(toDoItem);
-            await _context.SaveChangesAsync();
+        [HttpPost(Name = "CreateToDoItem")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse>> PostToDoItem(ToDoForCreateDto toDoForCreateDto)
+        {
+            try
+            {
+                if (await _dbToDoItem.GetAsync(u => u.Text.ToLower() == toDoForCreateDto.Text.ToLower()) != null)
+                {
+                    ModelState.AddModelError("ErrorMessages", "ToDoItem already Exists!");
+                    return BadRequest(ModelState);
+                }
 
-            return CreatedAtAction(nameof(GetToDoItem), new { id = toDoItem.Id }, toDoItem);
+                if (toDoForCreateDto == null)
+                {
+                    return BadRequest(null!);
+                }
+                
+                var toDoItem = _mapper.Map<ToDoItem>(toDoForCreateDto);
+                toDoItem.CreatedDate = DateTime.Now;
+
+                await _dbToDoItem.CreateAsync(toDoItem);
+                _response.Result = _mapper.Map<ToDoItemDto>(toDoItem);
+                _response.StatusCode = HttpStatusCode.Created;
+                return CreatedAtRoute("GetToDoItem", new { id = toDoItem.Id }, _response);
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.ErrorMessages
+                    = new List<string>() { ex.ToString() };
+            }
+            return _response;
         }
         
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutToDoItem(int id, ToDoForUpdateDto toDoItemDto)
+        [HttpPut("{id:int}", Name = "UpdateToDoItem")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse>> PutToDoItem(int id, ToDoForUpdateDto toDoForUpdateDto)
         {
-            var toDoItem = await _context.TodoItems.FindAsync(id);
+            try
+            {
+                if (toDoForUpdateDto == null || id != toDoForUpdateDto.Id)
+                {
+                    return BadRequest();
+                }
+
+                var model = _mapper.Map<ToDoItem>(toDoForUpdateDto);
+                model.UpdatedDate = DateTimeOffset.Now;
+
+                await _dbToDoItem.UpdateAsync(model);
+                _response.Result = _mapper.Map<ToDoItemDto>(model);
+                _response.StatusCode = HttpStatusCode.OK;
+                _response.IsSuccess = true;
+                return Ok(_response);
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.ErrorMessages
+                    = new List<string>() { ex.ToString() };
+            } 
+            return _response;
+        }
+        
+        [HttpPatch("{id:int}", Name = "UpdatePartialToDoItem")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> PatchToDoItem(int id, JsonPatchDocument<ToDoForUpdateDto> toDoForPatchDto)
+        {
+            if (toDoForPatchDto == null || id == 0)
+            {
+                return BadRequest();
+            }
+            var toDoItem = await _dbToDoItem.GetAsync(u => u.Id == id, false);
+            var toDoItemDto = _mapper.Map<ToDoForUpdateDto>(toDoItem);
 
             if (toDoItem == null)
             {
-                return NotFound();
+                return BadRequest();
             }
+            toDoForPatchDto.ApplyTo(toDoItemDto);
+            var model = _mapper.Map<ToDoItem>(toDoItemDto);
+            model.UpdatedDate = DateTimeOffset.Now;
 
-            if (toDoItemDto.Text != null)
+            await _dbToDoItem.UpdateAsync(model);
+            _response.Result = _mapper.Map<ToDoItemDto>(model);
+            _response.StatusCode = HttpStatusCode.OK;
+            _response.IsSuccess = true;
+
+            if (!ModelState.IsValid)
             {
-                toDoItem.Text = toDoItemDto.Text;
+                return BadRequest(ModelState);
             }
-            toDoItem.Completed = toDoItemDto.Completed;
-
-            _context.TodoItems.Update(toDoItem);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetToDoItem), new { id = toDoItem.Id }, toDoItem);
+            return Ok(_response);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteToDoItem(int id)
+        [HttpDelete("{id:int}", Name = "DeleteToDoItem")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse>> DeleteToDoItem(int id)
         {
-            var toDoItem = await _context.TodoItems.FindAsync(id);
-            if (toDoItem == null)
+            try
             {
-                return NotFound();
+                if (id == 0)
+                {
+                    return BadRequest();
+                }
+                var toDoItem = await _dbToDoItem.GetAsync(u => u.Id == id);
+                if (toDoItem == null)
+                {
+                    return NotFound();
+                }
+                await _dbToDoItem.RemoveAsync(toDoItem);
+                return NoContent();
             }
-
-            _context.TodoItems.Remove(toDoItem);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.ErrorMessages
+                    = new List<string>() { ex.ToString() };
+            }
+            return _response;
         }
     }
 }

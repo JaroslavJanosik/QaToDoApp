@@ -3,9 +3,23 @@ import ToDoItem from "./ToDoItem";
 import { ToDoForm } from "./ToDoForm";
 import { EditToDoForm } from "./EditToDoForm";
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL } from "../config";
 
-interface ToDo {
+interface GetApiResponse {
+  statusCode: number;
+  isSuccess: boolean;
+  errorMessages: string[];
+  result: ToDoItemModel[];
+}
+
+interface PostApiResponse {
+  statusCode: number;
+  isSuccess: boolean;
+  errorMessages: string[];
+  result: ToDoItemModel;
+}
+
+interface ToDoItemModel {
   id: number;
   text: string;
   completed: boolean;
@@ -13,13 +27,13 @@ interface ToDo {
 }
 
 export const ToDoWrapper: React.FC = () => {
-  const [todos, setTodos] = useState<ToDo[]>([]);
+  const [todos, setTodos] = useState<ToDoItemModel[]>([]);
 
   useEffect(() => {
     // Fetch the initial list of todos when the component mounts
-    axios.get<ToDo[]>(API_URL + '/api/ToDoItems')
+    axios.get<GetApiResponse>(API_URL + '/api/ToDoItems')
       .then((response) => {
-        setTodos(response.data);
+        setTodos(response.data.result);
       })
       .catch((error) => {
         console.error('Error fetching todos:', error);
@@ -28,9 +42,9 @@ export const ToDoWrapper: React.FC = () => {
 
   const addTodo = (todo: string) => {
     // Send a POST request to create a new todo
-    axios.post<ToDo>(API_URL + '/api/ToDoItems', { text: todo })
+    axios.post<PostApiResponse>(API_URL + '/api/ToDoItems', { text: todo })
       .then((response) => {
-        setTodos([...todos, response.data]);
+        setTodos([...todos, response.data.result]);
       })
       .catch((error) => {
         console.error('Error creating todo:', error);
@@ -52,7 +66,7 @@ export const ToDoWrapper: React.FC = () => {
     // Send a PUT request to update the completion status of a todo
     const todoToUpdate = todos.find((todo) => todo.id === id);
     if (todoToUpdate) {
-      axios.put(API_URL + `/api/ToDoItems/${id}`, { completed: !todoToUpdate.completed })
+      axios.put(API_URL + `/api/ToDoItems/${id}`, {id: id, text: todoToUpdate.text, completed: !todoToUpdate.completed })
         .then((response) => {
           setTodos(
             todos.map((todo) => (todo.id === id ? { ...todo, completed: !todoToUpdate.completed } : todo))
@@ -75,7 +89,7 @@ export const ToDoWrapper: React.FC = () => {
 
   const editTask = (task: string, id: number) => {
     // Send a PUT request to update the task of a todo
-    axios.put(API_URL + `/api/ToDoItems/${id}`, { text: task, completed: false })
+    axios.put(API_URL + `/api/ToDoItems/${id}`, { id: id, text: task, completed: false })
       .then((response) => {
         // Update the todos state with the modified text
         setTodos(

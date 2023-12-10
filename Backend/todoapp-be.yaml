@@ -5,7 +5,7 @@ metadata:
   labels:
     app: todoapp-be
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: todoapp-be
@@ -21,4 +21,18 @@ spec:
         image: todoapp-be:1.0
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 80        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todoapp-be-service
+spec:
+  selector:
+    app: todoapp-be
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

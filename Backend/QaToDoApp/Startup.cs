@@ -5,7 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
+using QaToDoApp.Data;
 using QaToDoApp.Models;
+using QaToDoApp.Repository;
 
 namespace QaToDoApp
 {
@@ -21,9 +23,11 @@ namespace QaToDoApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddDbContext<ToDoContext>(opt =>
+            services.AddDbContext<ToDoDbContext>(opt =>
                 opt.UseInMemoryDatabase("ToDoList"));
-            services.AddControllers();
+            services.AddControllers().AddNewtonsoftJson().AddXmlDataContractSerializerFormatters();
+            services.AddScoped<IToDoItemRepository, ToDoItemRepository>();
+            services.AddAutoMapper(typeof(MappingConfig));
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "QaToDoApp", Version = "v1" });

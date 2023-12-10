@@ -1,13 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build-env
 WORKDIR /app
 
-COPY Backend/QaToDoApp.sln ./QaToDoApp.sln
-COPY Backend/QaToDoApp/QaToDoApp.csproj ./QaToDoApp/QaToDoApp.csproj
-COPY Backend/QaToDoAppIntegrationTests/QaToDoAppIntegrationTests.csproj ./QaToDoAppIntegrationTests/QaToDoAppIntegrationTests.csproj
-COPY Backend/QaToDoAppUnitTests/QaToDoAppUnitTests.csproj ./QaToDoAppUnitTests/QaToDoAppUnitTests.csproj
+COPY QaToDoApp.sln ./QaToDoApp.sln
+COPY QaToDoApp/QaToDoApp.csproj ./QaToDoApp/QaToDoApp.csproj
+COPY QaToDoAppIntegrationTests/QaToDoAppIntegrationTests.csproj ./QaToDoAppIntegrationTests/QaToDoAppIntegrationTests.csproj
+COPY QaToDoAppUnitTests/QaToDoAppUnitTests.csproj ./QaToDoAppUnitTests/QaToDoAppUnitTests.csproj
 RUN dotnet restore
 
-COPY ./ ./
+COPY . ./
 RUN dotnet test -c Release
 RUN dotnet publish QaToDoApp -c Release -o out
 

@@ -3,8 +3,8 @@
 Simple ToDo application consisting of API BE part written in .NET and FE part in React.js.  
 
 ### Project requirement
-* .NET 7 SDK
-* Node.js 18.5.0
+* .NET 9 SDK
+* Node.js 24.5.0
 
 ### BE execution
 `dotnet run`  

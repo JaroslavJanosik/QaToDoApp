@@ -1,1 +1,1 @@
-export const API_URL = "https://localhost:5111";
+export const API_URL = "https://localhost:5111"; // Use an empty string when running in Minikube

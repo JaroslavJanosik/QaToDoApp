@@ -1,124 +1,211 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import axios, { AxiosInstance } from "axios";
 import ToDoItem from "./ToDoItem";
 import { ToDoForm } from "./ToDoForm";
 import { EditToDoForm } from "./EditToDoForm";
-import axios from 'axios';
 import { API_URL } from "../config";
 
-interface GetApiResponse {
+
+interface ApiResponse<T> {
   statusCode: number;
   isSuccess: boolean;
   errorMessages: string[];
-  result: ToDoItemModel[];
+  result: T;
 }
 
-interface PostApiResponse {
-  statusCode: number;
-  isSuccess: boolean;
-  errorMessages: string[];
-  result: ToDoItemModel;
-}
-
-interface ToDoItemModel {
+interface ToDoItemDto {
   id: number;
   text: string;
   completed: boolean;
-  isEditing: boolean;
 }
 
-export const ToDoWrapper: React.FC = () => {
-  const [todos, setTodos] = useState<ToDoItemModel[]>([]);
+type ToDoItemModel = ToDoItemDto & { isEditing?: boolean };
 
+const makeApi = (): AxiosInstance =>
+  axios.create({
+    baseURL: API_URL,
+    headers: { "Content-Type": "application/json" },
+  });
+
+const unwrap = <T,>(resp: ApiResponse<T>): T => {
+  if (!resp.isSuccess) {
+    const err = resp.errorMessages?.join("; ") || "Unknown API error";
+    throw new Error(err);
+  }
+  return resp.result;
+};
+
+export const ToDoWrapper: React.FC = () => {
+  const api = useMemo(() => makeApi(), []); // stable instance
+
+  const [todos, setTodos] = useState<ToDoItemModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initial load
   useEffect(() => {
-    // Fetch the initial list of todos when the component mounts
-    axios.get<GetApiResponse>(API_URL + '/api/ToDoItems')
-      .then((response) => {
-        setTodos(response.data.result);
-      })
-      .catch((error) => {
-        console.error('Error fetching todos:', error);
-      });
+    const controller = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const { data } = await api.get<ApiResponse<ToDoItemDto[]>>(
+          "/api/ToDoItems",
+          { signal: controller.signal }
+        );
+        const items = unwrap(data).map((t) => ({ ...t, isEditing: false }));
+        setTodos(items);
+      } catch (e: any) {
+        if (axios.isCancel(e)) return;
+        console.error("Error fetching todos:", e);
+        setError(e?.message ?? "Failed to load todos.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [api]);
+
+  // Add
+  const addTodo = useCallback(
+    async (text: string) => {
+      try {
+        setError(null);
+        const { data } = await api.post<ApiResponse<ToDoItemDto>>(
+          "/api/ToDoItems",
+          { text }
+        );
+        const created = unwrap(data);
+        setTodos((prev) => [...prev, { ...created, isEditing: false }]);
+      } catch (e: any) {
+        console.error("Error creating todo:", e);
+        setError(e?.message ?? "Failed to create todo.");
+      }
+    },
+    [api]
+  );
+
+  // Delete (optimistic with rollback)
+  const deleteTodo = useCallback(
+    async (id: number) => {
+      const snapshot = todos; // for rollback
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+      try {
+        await api.delete(`/api/ToDoItems/${id}`);
+      } catch (e: any) {
+        console.error("Error deleting todo:", e);
+        setError(e?.message ?? "Failed to delete todo.");
+        setTodos(snapshot); // rollback
+      }
+    },
+    [api, todos]
+  );
+
+  // Toggle complete (optimistic with rollback)
+  const toggleComplete = useCallback(
+    async (id: number) => {
+      const snapshot = todos;
+      let updated: ToDoItemModel | undefined;
+      setTodos((prev) =>
+        prev.map((t) => {
+          if (t.id !== id) return t;
+          updated = { ...t, completed: !t.completed };
+          return updated;
+        })
+      );
+
+      try {
+        if (!updated) return;
+        // send the full server DTO (without isEditing)
+        const payload: ToDoItemDto = {
+          id: updated.id,
+          text: updated.text,
+          completed: updated.completed,
+        };
+        await api.put(`/api/ToDoItems/${id}`, payload);
+      } catch (e: any) {
+        console.error("Error updating todo:", e);
+        setError(e?.message ?? "Failed to update todo.");
+        setTodos(snapshot); // rollback
+      }
+    },
+    [api, todos]
+  );
+
+  // Toggle edit mode (UI-only)
+  const editTodo = useCallback((id: number) => {
+    setTodos((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, isEditing: !t.isEditing } : t))
+    );
   }, []);
 
-  const addTodo = (todo: string) => {
-    // Send a POST request to create a new todo
-    axios.post<PostApiResponse>(API_URL + '/api/ToDoItems', { text: todo })
-      .then((response) => {
-        setTodos([...todos, response.data.result]);
-      })
-      .catch((error) => {
-        console.error('Error creating todo:', error);
-      });
-  }
+  // Save edited text (optimistic with rollback)
+  const editTask = useCallback(
+    async (newText: string, id: number) => {
+      const snapshot = todos;
+      let original: ToDoItemModel | undefined = todos.find((t) => t.id === id);
 
-  const deleteTodo = (id: number) => {
-    // Send a DELETE request to delete a todo
-    axios.delete(API_URL + `/api/ToDoItems/${id}`)
-      .then(() => {
-        setTodos(todos.filter((todo) => todo.id !== id));
-      })
-      .catch((error) => {
-        console.error('Error deleting todo:', error);
-      });
-  }
+      // Optimistically update UI
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, text: newText, isEditing: false } : t
+        )
+      );
 
-  const toggleComplete = (id: number) => {
-    // Send a PUT request to update the completion status of a todo
-    const todoToUpdate = todos.find((todo) => todo.id === id);
-    if (todoToUpdate) {
-      axios.put(API_URL + `/api/ToDoItems/${id}`, {id: id, text: todoToUpdate.text, completed: !todoToUpdate.completed })
-        .then((response) => {
-          setTodos(
-            todos.map((todo) => (todo.id === id ? { ...todo, completed: !todoToUpdate.completed } : todo))
-          );
-        })
-        .catch((error) => {
-          console.error('Error updating todo:', error);
-        });
-    }
-  }  
-
-  const editTodo = (id: number) => {
-    // Toggle the editing state of a todo
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, isEditing: !todo.isEditing } : todo
-      )
-    );
-  }
-
-  const editTask = (task: string, id: number) => {
-    // Send a PUT request to update the task of a todo
-    axios.put(API_URL + `/api/ToDoItems/${id}`, { id: id, text: task, completed: false })
-      .then((response) => {
-        // Update the todos state with the modified text
-        setTodos(
-          todos.map((todo) => (todo.id === id ? { ...todo, text: task, isEditing: false } : todo))
+      try {
+        if (!original) return;
+        const payload: ToDoItemDto = {
+          id,
+          text: newText,
+          completed: original.completed, // preserve completion state
+        };
+        const { data } = await api.put<ApiResponse<ToDoItemDto>>(
+          `/api/ToDoItems/${id}`,
+          payload
         );
-      })
-      .catch((error) => {
-        console.error('Error updating task:', error);
-      });
-  };  
+        const saved = unwrap(data);
+        // Ensure UI matches server response
+        setTodos((prev) =>
+          prev.map((t) =>
+            t.id === id ? { ...t, ...saved, isEditing: false } : t
+          )
+        );
+      } catch (e: any) {
+        console.error("Error updating task:", e);
+        setError(e?.message ?? "Failed to update task.");
+        setTodos(snapshot); // rollback
+      }
+    },
+    [api, todos]
+  );
 
   return (
     <div className="ToDoWrapper">
       <h1>ToDo List</h1>
+
       <ToDoForm addTodo={addTodo} />
-      {/* display todos */}
-      {todos.map((todo) =>
-        todo.isEditing ? (
-          <EditToDoForm editTodo={editTask} key={todo.id} task={todo} />
-        ) : (
-          <ToDoItem
-            key={todo.id}
-            task={todo}
-            deleteTodo={deleteTodo}
-            editTodo={editTodo}
-            toggleComplete={toggleComplete}
-          />
-        )
-      )}
+
+      {loading && <p>Loading…</p>}
+      {error && <p role="alert">{error}</p>}
+
+      {!loading &&
+        todos.map((todo) =>
+          todo.isEditing ? (
+            <EditToDoForm
+              key={todo.id}
+              editTodo={editTask}
+              task={todo}
+            />
+          ) : (
+            <ToDoItem
+              key={todo.id}
+              task={todo}
+              deleteTodo={deleteTodo}
+              editTodo={editTodo}
+              toggleComplete={toggleComplete}
+            />
+          )
+        )}
     </div>
   );
 };

@@ -1,0 +1,7 @@
+FROM cypress/included:latest
+WORKDIR /app
+
+COPY ./tests ./cypress-tests
+COPY ./cypress.json ./cypress.json
+
+RUN npx cypress run

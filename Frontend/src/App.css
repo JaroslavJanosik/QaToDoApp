@@ -1,0 +1,291 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+/* ===== Page ===== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* ===== Container (maps to your .ToDoWrapper) ===== */
+.ToDoWrapper {
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  max-width: 520px;
+  width: 92%;
+  transition: transform .3s ease, box-shadow .3s ease;
+}
+
+.ToDoWrapper:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.3);
+}
+
+.App {
+  text-align: center;
+}
+
+h1 {
+  font-size: 28px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #fff;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== Form ===== */
+.ToDoForm {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.todo-input {
+  flex: 1 1 260px;
+  max-width: 340px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  outline: none;
+  transition: border-color .25s ease, background .25s ease, box-shadow .25s ease;
+}
+
+.todo-input::placeholder {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.todo-input:focus {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18);
+}
+
+/* Submit button: soft, bright, readable */
+.todo-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #2b2b2b;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.todo-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.todo-btn:active {
+  transform: scale(0.99);
+}
+
+/* ===== Task item (maps to your .ToDoItem) ===== */
+.ToDoItem {
+  display: flex;
+  justify-content: space-between;
+  /* text left, icons right */
+  align-items: center;
+  /* vertical align fix */
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 15px;
+  margin: 12px 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  transition: background .25s ease, transform .18s ease;
+  cursor: pointer;
+}
+
+.ToDoItem:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.02);
+}
+
+/* Text column */
+.incompleted,
+.completed {
+  flex: 1;
+  text-align: left;
+  line-height: 1.45;
+}
+
+/* Completed look */
+.completed {
+  text-decoration: line-through;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration-thickness: 2px;
+}
+
+/* ===== Actions (icons on the right) ===== */
+.edit-icon,
+.delete-icon,
+.fa-trash {
+  /* Reduce icon size */
+  font-size: 16px;
+  /* <- smaller glyphs */
+  color: #fff;
+  opacity: 0.95;
+  transition: transform .15s ease, opacity .15s ease;
+}
+
+.edit-icon:hover,
+.delete-icon:hover,
+.fa-trash:hover {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+/* Optional: if your icons sit inside small chip-like buttons */
+.actions i,
+.edit-icon,
+.delete-icon,
+.fa-trash {
+  /* keep them visually tidy without huge hit area */
+  padding: 6px;
+  border-radius: 8px;
+}
+
+/* ===== Edit input (for EditToDoForm) ===== */
+.edit-input {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 15px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  outline: none;
+}
+
+.edit-input:focus {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* ===== Animation (like your reference) ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ToDoItem {
+  animation: fadeIn .25s ease;
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 500px) {
+  .ToDoWrapper {
+    padding: 22px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .todo-input {
+    font-size: 14px;
+  }
+
+  .todo-btn {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+
+  .incompleted,
+  .completed {
+    font-size: 14px;
+  }
+}
+
+.todo-text-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.todo-text-btn:focus-visible,
+.icon-btn:focus-visible,
+.todo-btn:focus-visible,
+.todo-input:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.95);
+  outline-offset: 2px;
+}
+
+.todo-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.todo-meta {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+}
+
+.empty-state {
+  padding: 12px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.error-banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: left;
+}

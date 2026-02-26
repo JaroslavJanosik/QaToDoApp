@@ -1,0 +1,72 @@
+# ----------------------------
+# OS / Editor
+# ----------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ----------------------------
+# Logs
+# ----------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ----------------------------
+# Environment files
+# ----------------------------
+.env
+.env.*
+!.env.example
+
+# ----------------------------
+# Frontend (React / Node)
+# ----------------------------
+Frontend/node_modules/
+Frontend/build/
+Frontend/dist/
+Frontend/.cache/
+Frontend/.eslintcache
+Frontend/coverage/
+
+# Cypress artifacts
+Frontend/cypress/videos/
+Frontend/cypress/screenshots/
+Frontend/cypress/reports/
+Frontend/mochawesome-report/
+Frontend/.nyc_output/
+
+# ----------------------------
+# Backend (.NET)
+# ----------------------------
+Backend/**/bin/
+Backend/**/obj/
+Backend/**/TestResults/
+Backend/.vs/
+*.user
+*.suo
+*.userosscache
+*.rsuser
+*.sln.docstates
+
+# Rider / ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# ----------------------------
+# Test / Coverage
+# ----------------------------
+coverage/
+*.coverage
+*.coveragexml
+
+# ----------------------------
+# Archives / temp files
+# ----------------------------
+*.zip
+*.tmp
+*.temp

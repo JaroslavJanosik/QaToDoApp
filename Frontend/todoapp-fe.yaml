@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-fe-depl
+  labels:
+    app: todoapp-fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todoapp-fe
+      tier: frontend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: todoapp-fe
+        tier: frontend
+        track: stable
+    spec:
+      containers:
+      - name: todoapp-fe
+        image: todoapp-fe:1.0
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: 2048Mi
+            cpu: "1"
+          requests:
+            memory: 1024Mi
+            cpu: "0.2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todoapp-fe-service
+spec:
+  selector:
+    app: todoapp-fe
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
